@@ -11,11 +11,28 @@ let commands = [];
 let executions = [];
 let refreshTimer = null;
 let selectedExecutionId = null;
+let commandSearchQuery = '';
 
 // ===========================
 // Initialization
 // ===========================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check authentication
+    if (!isAuthenticated()) {
+        redirectToLogin();
+        return;
+    }
+
+    // Check if setup is needed
+    const needsSetup = await checkSetup();
+    if (needsSetup) {
+        redirectToSetup();
+        return;
+    }
+
+    // Load current user
+    loadCurrentUser();
+
     setupEventListeners();
     loadCommands();
     loadExecutions();
@@ -30,6 +47,8 @@ function setupEventListeners() {
     document.getElementById('addCommandBtn').addEventListener('click', openAddCommandModal);
     document.getElementById('commandForm').addEventListener('submit', handleSaveCommand);
     document.getElementById('clearHistoryBtn').addEventListener('click', handleClearHistory);
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+    document.getElementById('commandSearch').addEventListener('input', handleCommandSearch);
 
     document.getElementById('commandModal').addEventListener('click', (e) => {
         if (e.target.id === 'commandModal') closeCommandModal();
@@ -40,14 +59,27 @@ function setupEventListeners() {
 // API Functions
 // ===========================
 async function apiRequest(endpoint, options = {}) {
+    const authHeader = getAuthHeader();
+    if (!authHeader) {
+        redirectToLogin();
+        return;
+    }
+
     try {
         const response = await fetch(`${API_BASE}${endpoint}`, {
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': authHeader,
                 ...options.headers,
             },
             ...options,
         });
+
+        if (response.status === 401) {
+            clearAuthCredentials();
+            redirectToLogin();
+            return;
+        }
 
         if (!response.ok) {
             const error = await response.json();
@@ -109,15 +141,33 @@ async function clearAllExecutions() {
 }
 
 // ===========================
+// Authentication
+// ===========================
+async function loadCurrentUser() {
+    try {
+        const user = await apiRequest('/auth/me');
+        document.getElementById('currentUser').textContent = `👤 ${user.username}`;
+    } catch (error) {
+        console.error('Failed to load current user:', error);
+    }
+}
+
+// ===========================
 // Load Data
 // ===========================
 async function loadCommands() {
     try {
-        commands = await getCommands();
+        commands = await apiRequest('/commands');
         renderCommands();
     } catch (error) {
         console.error('Failed to load commands:', error);
     }
+}
+
+// Handle command search
+function handleCommandSearch(e) {
+    commandSearchQuery = e.target.value.toLowerCase().trim();
+    renderCommands();
 }
 
 async function loadExecutions() {
@@ -224,12 +274,23 @@ async function handleSaveCommand(e) {
 function renderCommands() {
     const container = document.getElementById('commandsList');
 
-    if (commands.length === 0) {
-        container.innerHTML = '<div class="text-center text-gray-500 text-xs py-8">No saved commands</div>';
+    // Filter commands by search query
+    const filteredCommands = commands.filter(cmd => {
+        if (!commandSearchQuery) return true;
+        return cmd.name.toLowerCase().includes(commandSearchQuery) ||
+            (cmd.description && cmd.description.toLowerCase().includes(commandSearchQuery)) ||
+            (cmd.tags && cmd.tags.some(tag => tag.toLowerCase().includes(commandSearchQuery)));
+    });
+
+    if (filteredCommands.length === 0) {
+        const message = commandSearchQuery
+            ? `No commands matching "${commandSearchQuery}"`
+            : 'No saved commands';
+        container.innerHTML = `<div class="text-center text-gray-500 text-xs py-8">${message}</div>`;
         return;
     }
 
-    const html = commands.map(cmd => `
+    const html = filteredCommands.map(cmd => `
         <div class="bg-gray-800 border border-gray-700 rounded p-2 hover:border-indigo-500 transition">
             <div class="font-medium text-xs mb-1 truncate">${escapeHtml(cmd.name)}</div>
             ${cmd.description ? `<div class="text-xs text-gray-400 mb-1.5 truncate">${escapeHtml(cmd.description)}</div>` : ''}
@@ -343,6 +404,13 @@ function renderExecutionDetails(execution) {
             <div>
                 <div class="text-xs text-gray-400 mb-1">Command Name</div>
                 <div class="text-sm">${escapeHtml(execution.name)}</div>
+            </div>
+            ` : ''}
+            
+            ${execution.executed_by ? `
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Executed By</div>
+                <div class="text-sm">👤 ${escapeHtml(execution.executed_by)}</div>
             </div>
             ` : ''}
             

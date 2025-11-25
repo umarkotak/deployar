@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users - Deployar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark': '#0a0e1a',
+                        'dark-lighter': '#1a202e',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0e1a;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #1a202e;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+
+<body class="text-gray-100">
+    <!-- Top Bar -->
+    <div class="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
+        <div class="px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">👥</span>
+                <h1
+                    class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                    Manage Users
+                </h1>
+            </div>
+            <a href="/index.html"
+                class="bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded text-sm transition">
+                ← Back to Main
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="p-6 max-w-4xl mx-auto">
+        <!-- Add User Form -->
+        <div class="bg-gray-900/50 border border-gray-800 rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Add New User</h2>
+            <form id="addUserForm" class="flex gap-3">
+                <div class="flex-1">
+                    <input type="text" id="newUsername"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                        placeholder="Username (min 3 chars)" required>
+                </div>
+                <div class="flex-1">
+                    <input type="password" id="newPassword"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                        placeholder="Password (min 4 chars)" required>
+                </div>
+                <button type="submit"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm transition whitespace-nowrap">
+                    + Add User
+                </button>
+            </form>
+            <div id="addUserError" class="hidden text-red-400 text-sm mt-2"></div>
+            <div id="addUserSuccess" class="hidden text-green-400 text-sm mt-2"></div>
+        </div>
+
+        <!-- Users List -->
+        <div class="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
+            <h2 class="text-lg font-semibold mb-4">Existing Users</h2>
+            <div id="usersList" class="space-y-2">
+                <div class="text-center text-gray-500 text-sm py-8">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        const API_BASE = '/api';
+        let users = [];
+
+        // Check authentication on page load
+        (async function () {
+            if (!isAuthenticated()) {
+                redirectToLogin();
+                return;
+            }
+
+            const needsSetup = await checkSetup();
+            if (needsSetup) {
+                redirectToSetup();
+                return;
+            }
+
+            loadUsers();
+        })();
+
+        // API helper with auth
+        async function apiRequest(endpoint, options = {}) {
+            const authHeader = getAuthHeader();
+            if (!authHeader) {
+                redirectToLogin();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': authHeader,
+                        ...options.headers,
+                    },
+                    ...options,
+                });
+
+                if (response.status === 401) {
+                    clearAuthCredentials();
+                    redirectToLogin();
+                    return;
+                }
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Request failed');
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // Load users
+        async function loadUsers() {
+            try {
+                users = await apiRequest('/users');
+                renderUsers();
+            } catch (error) {
+                document.getElementById('usersList').innerHTML =
+                    '<div class="text-center text-red-400 text-sm py-8">Failed to load users</div>';
+            }
+        }
+
+        // Render users list
+        function renderUsers() {
+            const container = document.getElementById('usersList');
+
+            if (users.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-500 text-sm py-8">No users found</div>';
+                return;
+            }
+
+            const html = users.map(user => `
+                <div class="bg-gray-800 border border-gray-700 rounded p-4 flex items-center justify-between">
+                    <div>
+                        <div class="font-medium text-sm">${escapeHtml(user.username)}</div>
+                        <div class="text-xs text-gray-400">Created: ${new Date(user.created_at).toLocaleString()}</div>
+                    </div>
+                    <button 
+                        onclick="deleteUser('${escapeHtml(user.username)}')"
+                        class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-xs transition"
+                        ${users.length === 1 ? 'disabled title="Cannot delete last user"' : ''}
+                    >
+                        Delete
+                    </button>
+                </div>
+            `).join('');
+
+            container.innerHTML = html;
+        }
+
+        // Add user
+        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('newUsername').value.trim();
+            const password = document.getElementById('newPassword').value;
+            const errorDiv = document.getElementById('addUserError');
+            const successDiv = document.getElementById('addUserSuccess');
+
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+
+            try {
+                await apiRequest('/users', {
+                    method: 'POST',
+                    body: JSON.stringify({ username, password }),
+                });
+
+                successDiv.textContent = `User "${username}" created successfully`;
+                successDiv.classList.remove('hidden');
+
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newPassword').value = '';
+
+                loadUsers();
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+            }
+        });
+
+        // Delete user
+        async function deleteUser(username) {
+            if (!confirm(`Delete user "${username}"?`)) return;
+
+            try {
+                await apiRequest(`/users/${username}`, {
+                    method: 'DELETE',
+                });
+
+                loadUsers();
+            } catch (error) {
+                alert('Failed to delete user: ' + error.message);
+            }
+        }
+
+        // Utility
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        window.deleteUser = deleteUser;
+    </script>
+</body>
+
+</html>

@@ -9,12 +9,14 @@ import (
 const (
 	commandsFile   = "commands.json"
 	executionsFile = "executions.json"
+	usersFile      = "users.json"
 )
 
 // Storage manages persistent data storage
 type Storage struct {
 	commandsMutex   sync.RWMutex
 	executionsMutex sync.RWMutex
+	usersMutex      sync.RWMutex
 }
 
 // NewStorage creates a new storage instance
@@ -92,4 +94,40 @@ func (s *Storage) LoadExecutions() (map[string]*Execution, error) {
 
 	err = json.Unmarshal(data, &executions)
 	return executions, err
+}
+
+// SaveUsers writes users to JSON file
+func (s *Storage) SaveUsers(users map[string]*User) error {
+	s.usersMutex.Lock()
+	defer s.usersMutex.Unlock()
+
+	data, err := json.MarshalIndent(users, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(usersFile, data, 0644)
+}
+
+// LoadUsers reads users from JSON file
+func (s *Storage) LoadUsers() (map[string]*User, error) {
+	s.usersMutex.RLock()
+	defer s.usersMutex.RUnlock()
+
+	users := make(map[string]*User)
+
+	data, err := os.ReadFile(usersFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return users, nil
+		}
+		return nil, err
+	}
+
+	if len(data) == 0 {
+		return users, nil
+	}
+
+	err = json.Unmarshal(data, &users)
+	return users, err
 }

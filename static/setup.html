@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - Deployar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark': '#0a0e1a',
+                        'dark-lighter': '#1a202e',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0e1a;
+        }
+    </style>
+</head>
+
+<body class="text-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md px-4">
+        <div class="bg-gray-900/50 border border-gray-800 rounded-lg p-8">
+            <div class="text-center mb-6">
+                <span class="text-5xl mb-4 block">🚀</span>
+                <h1
+                    class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mb-2">
+                    Welcome to Deployar
+                </h1>
+                <p class="text-gray-400 text-sm">Create your root user account</p>
+            </div>
+
+            <form id="setupForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Username</label>
+                    <input type="text" id="username"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                        placeholder="Enter username" required autofocus>
+                </div>
+
+                <div>
+                    <label class="block text-sm text-gray-400 mb-2">Password</label>
+                    <input type="password" id="password"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-4 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                        placeholder="Enter password" required>
+                    <p class="text-xs text-gray-500 mt-1">Minimum 4 characters</p>
+                </div>
+
+                <div id="errorMessage" class="hidden text-red-400 text-sm text-center py-2"></div>
+
+                <button type="submit"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded transition">
+                    Create Root User
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        document.getElementById('setupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+
+            try {
+                const response = await fetch('/api/auth/setup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    errorDiv.textContent = data.error || 'Setup failed';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+
+                // Setup successful, redirect to login
+                window.location.href = '/login.html';
+            } catch (error) {
+                errorDiv.textContent = 'Network error: ' + error.message;
+                errorDiv.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+
+</html>

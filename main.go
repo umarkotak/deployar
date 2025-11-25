@@ -18,8 +18,23 @@ func main() {
 	// Setup router
 	router := mux.NewRouter()
 
-	// API routes
+	// Public auth routes (no middleware)
+	router.HandleFunc("/api/auth/setup", app.CheckSetupHandler).Methods("GET")
+	router.HandleFunc("/api/auth/setup", app.SetupHandler).Methods("POST")
+	router.HandleFunc("/api/auth/login", app.LoginHandler).Methods("POST")
+
+	// API routes (protected with auth middleware)
 	api := router.PathPrefix("/api").Subrouter()
+	api.Use(app.AuthMiddleware)
+
+	// Auth endpoints (protected)
+	api.HandleFunc("/auth/logout", app.LogoutHandler).Methods("POST")
+	api.HandleFunc("/auth/me", app.GetCurrentUserHandler).Methods("GET")
+
+	// User management endpoints (protected)
+	api.HandleFunc("/users", app.ListUsersHandler).Methods("GET")
+	api.HandleFunc("/users", app.CreateUserHandler).Methods("POST")
+	api.HandleFunc("/users/{username}", app.DeleteUserHandler).Methods("DELETE")
 
 	// Execute commands
 	api.HandleFunc("/execute", app.ExecuteHandler).Methods("POST")

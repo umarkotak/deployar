@@ -73,6 +73,19 @@
                         </button>
                     </div>
                 </form>
+
+                <!-- User Info & Actions -->
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <span id="currentUser" class="text-xs text-gray-400">•••</span>
+                    <a href="/users.html"
+                        class="bg-gray-800 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition whitespace-nowrap">
+                        👥 Users
+                    </a>
+                    <button id="logoutBtn"
+                        class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition whitespace-nowrap">
+                        Logout
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -90,6 +103,8 @@
                     + Add
                 </button>
             </div>
+            <input type="text" id="commandSearch" placeholder="🔍 Search commands..."
+                class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 mb-2">
             <div id="commandsList" class="flex-1 overflow-y-auto scrollbar-thin space-y-1.5">
                 <div class="text-center text-gray-500 text-xs py-8">
                     No saved commands
@@ -180,6 +195,7 @@
         </div>
     </div>
 
+    <script src="auth.js"></script>
     <script src="app.js"></script>
 </body>
 

@@ -30,15 +30,16 @@ func NewExecutor(storage *Storage) *Executor {
 }
 
 // Execute runs a command and records the execution
-func (e *Executor) Execute(workdir, command, commandID, commandName string) (*Execution, error) {
+func (e *Executor) Execute(workdir, command, commandID, commandName, username string) (*Execution, error) {
 	execution := &Execution{
-		ID:        uuid.New().String(),
-		CommandID: commandID,
-		Name:      commandName,
-		Workdir:   workdir,
-		Command:   command,
-		Status:    "running",
-		StartedAt: time.Now(),
+		ID:         uuid.New().String(),
+		CommandID:  commandID,
+		Name:       commandName,
+		Workdir:    workdir,
+		Command:    command,
+		Status:     "running",
+		ExecutedBy: username,
+		StartedAt:  time.Now(),
 	}
 
 	// Save initial execution state

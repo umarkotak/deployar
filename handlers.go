@@ -14,6 +14,7 @@ type App struct {
 	storage  *Storage
 	executor *Executor
 	commands map[string]*Command
+	users    map[string]*User
 }
 
 // NewApp creates a new application instance
@@ -26,10 +27,16 @@ func NewApp() *App {
 		commands = make(map[string]*Command)
 	}
 
+	users, err := storage.LoadUsers()
+	if err != nil {
+		users = make(map[string]*User)
+	}
+
 	return &App{
 		storage:  storage,
 		executor: executor,
 		commands: commands,
+		users:    users,
 	}
 }
 
@@ -46,7 +53,10 @@ func (app *App) ExecuteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	execution, err := app.executor.Execute(req.Workdir, req.Command, "", "")
+	// Get username from auth header
+	username, _, _ := parseBasicAuth(r.Header.Get("Authorization"))
+
+	execution, err := app.executor.Execute(req.Workdir, req.Command, "", "", username)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
@@ -190,7 +200,10 @@ func (app *App) ExecuteCommandHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	execution, err := app.executor.Execute(cmd.Workdir, cmd.Command, cmd.ID, cmd.Name)
+	// Get username from auth header
+	username, _, _ := parseBasicAuth(r.Header.Get("Authorization"))
+
+	execution, err := app.executor.Execute(cmd.Workdir, cmd.Command, cmd.ID, cmd.Name, username)
 	if err != nil {
 		respondJSON(w, http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
@@ -240,6 +253,182 @@ func (app *App) DeleteExecutionHandler(w http.ResponseWriter, r *http.Request) {
 func (app *App) ClearExecutionsHandler(w http.ResponseWriter, r *http.Request) {
 	app.executor.ClearExecutions()
 	respondJSON(w, http.StatusOK, map[string]string{"message": "All executions cleared"})
+}
+
+// CheckSetupHandler handles GET /api/auth/setup
+func (app *App) CheckSetupHandler(w http.ResponseWriter, r *http.Request) {
+	needsSetup := len(app.users) == 0
+	respondJSON(w, http.StatusOK, map[string]bool{"needs_setup": needsSetup})
+}
+
+// SetupHandler handles POST /api/auth/setup
+func (app *App) SetupHandler(w http.ResponseWriter, r *http.Request) {
+	// Only allow setup if no users exist
+	if len(app.users) > 0 {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Setup already completed"})
+		return
+	}
+
+	var req SetupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+
+	// Validate
+	if err := validateUsername(req.Username); err != nil {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := validatePassword(req.Password); err != nil {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Create root user
+	user := &User{
+		Username:  req.Username,
+		Password:  req.Password,
+		CreatedAt: time.Now(),
+	}
+
+	app.users[user.Username] = user
+	if err := app.storage.SaveUsers(app.users); err != nil {
+		respondJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to save user"})
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, UserResponse{
+		Username:  user.Username,
+		CreatedAt: user.CreatedAt,
+	})
+}
+
+// LoginHandler handles POST /api/auth/login
+func (app *App) LoginHandler(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+
+	user, exists := app.users[req.Username]
+	if !exists || user.Password != req.Password {
+		respondJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "Invalid credentials"})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, UserResponse{
+		Username:  user.Username,
+		CreatedAt: user.CreatedAt,
+	})
+}
+
+// LogoutHandler handles POST /api/auth/logout
+func (app *App) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	// Logout is handled client-side by clearing cookies
+	respondJSON(w, http.StatusOK, map[string]string{"message": "Logged out successfully"})
+}
+
+// GetCurrentUserHandler handles GET /api/auth/me
+func (app *App) GetCurrentUserHandler(w http.ResponseWriter, r *http.Request) {
+	username, _, ok := parseBasicAuth(r.Header.Get("Authorization"))
+	if !ok {
+		respondJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "Not authenticated"})
+		return
+	}
+
+	user, exists := app.users[username]
+	if !exists {
+		respondJSON(w, http.StatusNotFound, ErrorResponse{Error: "User not found"})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, UserResponse{
+		Username:  user.Username,
+		CreatedAt: user.CreatedAt,
+	})
+}
+
+// CreateUserHandler handles POST /api/users
+func (app *App) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
+	var req CreateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+
+	// Validate
+	if err := validateUsername(req.Username); err != nil {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+	if err := validatePassword(req.Password); err != nil {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+		return
+	}
+
+	// Check if user already exists
+	if _, exists := app.users[req.Username]; exists {
+		respondJSON(w, http.StatusConflict, ErrorResponse{Error: "User already exists"})
+		return
+	}
+
+	// Create user
+	user := &User{
+		Username:  req.Username,
+		Password:  req.Password,
+		CreatedAt: time.Now(),
+	}
+
+	app.users[user.Username] = user
+	if err := app.storage.SaveUsers(app.users); err != nil {
+		respondJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to save user"})
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, UserResponse{
+		Username:  user.Username,
+		CreatedAt: user.CreatedAt,
+	})
+}
+
+// ListUsersHandler handles GET /api/users
+func (app *App) ListUsersHandler(w http.ResponseWriter, r *http.Request) {
+	users := make([]UserResponse, 0, len(app.users))
+	for _, user := range app.users {
+		users = append(users, UserResponse{
+			Username:  user.Username,
+			CreatedAt: user.CreatedAt,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, users)
+}
+
+// DeleteUserHandler handles DELETE /api/users/:username
+func (app *App) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	username := vars["username"]
+
+	if _, exists := app.users[username]; !exists {
+		respondJSON(w, http.StatusNotFound, ErrorResponse{Error: "User not found"})
+		return
+	}
+
+	// Prevent deleting the last user
+	if len(app.users) == 1 {
+		respondJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Cannot delete the last user"})
+		return
+	}
+
+	delete(app.users, username)
+	if err := app.storage.SaveUsers(app.users); err != nil {
+		respondJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to delete user"})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"message": "User deleted successfully"})
 }
 
 // respondJSON writes a JSON response
