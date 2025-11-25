@@ -14,6 +14,7 @@ deployar
 # Data files
 commands.json
 executions.json
+users.json
 
 # IDE files
 .vscode/

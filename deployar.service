@@ -1,0 +1,17 @@
+[Unit]
+Description=deployar
+After=network.target
+StartLimitIntervalSec=3
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/everywhere/backend/deployar
+ExecStart=/home/ubuntu/everywhere/backend/deployar/pkg/deployar
+Restart=always
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=deployar
+
+[Install]
+WantedBy=multi-user.target
