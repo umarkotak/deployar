@@ -1,182 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Deployar - Deployment Manager</title>
-    <meta name="description" content="Modern deployment management tool for executing and managing command-line operations">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="description"
+        content="Modern deployment management tool for executing and managing command-line operations">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'dark': '#0a0e1a',
+                        'dark-lighter': '#1a202e',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0e1a;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #1a202e;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <div class="logo-icon">🚀</div>
-                    <h1>Deployar</h1>
-                </div>
-                <p class="tagline">Deployment Command Manager</p>
-            </div>
-        </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Quick Execute Section -->
-            <section class="card execute-card">
-                <div class="card-header">
-                    <h2>⚡ Quick Execute</h2>
-                    <p>Run a command directly</p>
+<body class="text-gray-100">
+    <!-- Top Bar - Header + Quick Execute -->
+    <div class="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
+        <div class="px-4 py-3">
+            <div class="flex items-center gap-4">
+                <!-- Logo -->
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <span class="text-2xl">🚀</span>
+                    <h1
+                        class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                        Deployar</h1>
                 </div>
-                <form id="executeForm" class="execute-form">
-                    <div class="form-group">
-                        <label for="workdir">Working Directory</label>
-                        <input 
-                            type="text" 
-                            id="workdir" 
-                            placeholder="/app/identity" 
-                            value="."
-                            required
-                        >
-                    </div>
-                    <div class="form-group">
-                        <label for="command">Command</label>
-                        <input 
-                            type="text" 
-                            id="command" 
-                            placeholder="make build" 
-                            required
-                        >
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <span class="btn-icon">▶</span>
-                        Execute Command
-                    </button>
-                </form>
-            </section>
 
-            <!-- Saved Commands Section -->
-            <section class="card commands-card">
-                <div class="card-header">
-                    <div>
-                        <h2>📚 Saved Commands</h2>
-                        <p>Manage your deployment commands</p>
-                    </div>
-                    <button id="addCommandBtn" class="btn btn-secondary">
-                        <span class="btn-icon">+</span>
-                        Add Command
-                    </button>
-                </div>
-                <div id="commandsList" class="commands-list">
-                    <div class="empty-state">
-                        <div class="empty-icon">📦</div>
-                        <p>No saved commands yet</p>
-                        <button class="btn btn-ghost" onclick="document.getElementById('addCommandBtn').click()">
-                            Create your first command
+                <!-- Quick Execute Form -->
+                <form id="executeForm" class="flex items-center gap-2 flex-1">
+                    <div class="flex items-center gap-2 flex-1">
+                        <label class="text-xs text-gray-400 whitespace-nowrap">⚡ Quick:</label>
+                        <input type="text" id="workdir" value="." placeholder="workdir"
+                            class="w-32 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500"
+                            required>
+                        <input type="text" id="command" placeholder="command (e.g. make build)"
+                            class="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500"
+                            required>
+                        <button type="submit"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1 px-3 rounded text-xs transition whitespace-nowrap">
+                            Execute
                         </button>
                     </div>
-                </div>
-            </section>
+                </form>
+            </div>
+        </div>
+    </div>
 
-            <!-- Execution History Section -->
-            <section class="card history-card">
-                <div class="card-header">
-                    <div>
-                        <h2>📜 Execution History</h2>
-                        <p>Recent command executions</p>
-                    </div>
-                    <button id="clearHistoryBtn" class="btn btn-ghost">
-                        Clear History
-                    </button>
+    <!-- Main 3-Column Layout -->
+    <div class="grid grid-cols-12 gap-3 p-3 h-[calc(100vh-64px)]">
+        <!-- Column 1: Saved Commands -->
+        <div class="col-span-3 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold flex items-center gap-1.5">
+                    <span>📚</span> Commands
+                </h2>
+                <button id="addCommandBtn"
+                    class="bg-gray-800 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition">
+                    + Add
+                </button>
+            </div>
+            <div id="commandsList" class="flex-1 overflow-y-auto scrollbar-thin space-y-1.5">
+                <div class="text-center text-gray-500 text-xs py-8">
+                    No saved commands
                 </div>
-                <div id="executionsList" class="executions-list">
-                    <div class="empty-state">
-                        <div class="empty-icon">🕐</div>
-                        <p>No executions yet</p>
-                    </div>
+            </div>
+        </div>
+
+        <!-- Column 2: Execution History -->
+        <div class="col-span-3 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold flex items-center gap-1.5">
+                    <span>📜</span> History
+                </h2>
+                <button id="clearHistoryBtn"
+                    class="text-gray-400 hover:text-white px-2 py-1 rounded text-xs transition">
+                    Clear
+                </button>
+            </div>
+            <div id="executionsList" class="flex-1 overflow-y-auto scrollbar-thin space-y-1.5">
+                <div class="text-center text-gray-500 text-xs py-8">
+                    No executions yet
                 </div>
-            </section>
-        </main>
+            </div>
+        </div>
+
+        <!-- Column 3: Execution Details -->
+        <div class="col-span-6 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col">
+            <h2 class="text-sm font-semibold mb-3 flex items-center gap-1.5">
+                <span>📄</span> Details
+            </h2>
+            <div id="executionDetails" class="flex-1 overflow-y-auto scrollbar-thin">
+                <div class="text-center text-gray-500 text-xs py-8">
+                    Select an execution to view details
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Add/Edit Command Modal -->
-    <div id="commandModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitle">Add New Command</h2>
-                <button class="modal-close" onclick="closeCommandModal()">&times;</button>
+    <div id="commandModal"
+        class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="bg-gray-900 border border-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <div class="flex items-center justify-between mb-4">
+                <h2 id="modalTitle" class="text-xl font-semibold">Add New Command</h2>
+                <button onclick="closeCommandModal()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
             </div>
-            <form id="commandForm">
+            <form id="commandForm" class="space-y-3">
                 <input type="hidden" id="commandId">
-                <div class="form-group">
-                    <label for="commandName">Command Name *</label>
-                    <input 
-                        type="text" 
-                        id="commandName" 
-                        placeholder="Build Identity Service" 
-                        required
-                    >
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Command Name *</label>
+                    <input type="text" id="commandName"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                        required>
                 </div>
-                <div class="form-group">
-                    <label for="commandDescription">Description</label>
-                    <input 
-                        type="text" 
-                        id="commandDescription" 
-                        placeholder="Builds the identity service using make"
-                    >
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Description</label>
+                    <input type="text" id="commandDescription"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
                 </div>
-                <div class="form-group">
-                    <label for="commandWorkdir">Working Directory *</label>
-                    <input 
-                        type="text" 
-                        id="commandWorkdir" 
-                        placeholder="/app/identity" 
-                        required
-                    >
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Working Directory *</label>
+                    <input type="text" id="commandWorkdir"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                        required>
                 </div>
-                <div class="form-group">
-                    <label for="commandCommand">Command *</label>
-                    <input 
-                        type="text" 
-                        id="commandCommand" 
-                        placeholder="make build" 
-                        required
-                    >
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Command *</label>
+                    <input type="text" id="commandCommand"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                        required>
                 </div>
-                <div class="form-group">
-                    <label for="commandTags">Tags (comma-separated)</label>
-                    <input 
-                        type="text" 
-                        id="commandTags" 
-                        placeholder="build, identity, production"
-                    >
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Tags (comma-separated)</label>
+                    <input type="text" id="commandTags"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
                 </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-ghost" onclick="closeCommandModal()">
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="closeCommandModal()"
+                        class="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-2 px-4 rounded text-sm transition">
                         Cancel
                     </button>
-                    <button type="submit" class="btn btn-primary">
-                        Save Command
+                    <button type="submit"
+                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded text-sm transition">
+                        Save
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Execution Detail Modal -->
-    <div id="executionModal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h2>Execution Details</h2>
-                <button class="modal-close" onclick="closeExecutionModal()">&times;</button>
-            </div>
-            <div id="executionDetails"></div>
-        </div>
-    </div>
-
     <script src="app.js"></script>
 </body>
+
 </html>

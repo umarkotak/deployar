@@ -2,7 +2,7 @@
 // API Configuration
 // ===========================
 const API_BASE = '/api';
-const REFRESH_INTERVAL = 2000; // Poll for updates every 2 seconds
+const REFRESH_INTERVAL = 2000;
 
 // ===========================
 // State Management
@@ -10,6 +10,7 @@ const REFRESH_INTERVAL = 2000; // Poll for updates every 2 seconds
 let commands = [];
 let executions = [];
 let refreshTimer = null;
+let selectedExecutionId = null;
 
 // ===========================
 // Initialization
@@ -25,25 +26,13 @@ document.addEventListener('DOMContentLoaded', () => {
 // Event Listeners
 // ===========================
 function setupEventListeners() {
-    // Quick execute form
     document.getElementById('executeForm').addEventListener('submit', handleQuickExecute);
-    
-    // Add command button
     document.getElementById('addCommandBtn').addEventListener('click', openAddCommandModal);
-    
-    // Command form
     document.getElementById('commandForm').addEventListener('submit', handleSaveCommand);
-    
-    // Clear history button
     document.getElementById('clearHistoryBtn').addEventListener('click', handleClearHistory);
-    
-    // Close modals on background click
+
     document.getElementById('commandModal').addEventListener('click', (e) => {
         if (e.target.id === 'commandModal') closeCommandModal();
-    });
-    
-    document.getElementById('executionModal').addEventListener('click', (e) => {
-        if (e.target.id === 'executionModal') closeExecutionModal();
     });
 }
 
@@ -59,12 +48,12 @@ async function apiRequest(endpoint, options = {}) {
             },
             ...options,
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.error || 'Request failed');
         }
-        
+
         return await response.json();
     } catch (error) {
         console.error('API Error:', error);
@@ -113,12 +102,6 @@ async function getExecution(id) {
     return await apiRequest(`/executions/${id}`);
 }
 
-async function deleteExecution(id) {
-    return await apiRequest(`/executions/${id}`, {
-        method: 'DELETE',
-    });
-}
-
 async function clearAllExecutions() {
     return await apiRequest('/executions/clear', {
         method: 'POST',
@@ -141,6 +124,14 @@ async function loadExecutions() {
     try {
         executions = await getExecutions();
         renderExecutions();
+
+        // Refresh selected execution details if one is selected
+        if (selectedExecutionId) {
+            const exec = executions.find(e => e.id === selectedExecutionId);
+            if (exec) {
+                renderExecutionDetails(exec);
+            }
+        }
     } catch (error) {
         console.error('Failed to load executions:', error);
     }
@@ -151,15 +142,8 @@ async function loadExecutions() {
 // ===========================
 function startAutoRefresh() {
     refreshTimer = setInterval(() => {
-        loadExecutions(); // Refresh execution history to update running commands
+        loadExecutions();
     }, REFRESH_INTERVAL);
-}
-
-function stopAutoRefresh() {
-    if (refreshTimer) {
-        clearInterval(refreshTimer);
-        refreshTimer = null;
-    }
 }
 
 // ===========================
@@ -167,18 +151,13 @@ function stopAutoRefresh() {
 // ===========================
 async function handleQuickExecute(e) {
     e.preventDefault();
-    
+
     const workdir = document.getElementById('workdir').value.trim();
     const command = document.getElementById('command').value.trim();
-    
+
     try {
-        const result = await executeCommand(workdir, command);
-        alert(`Command started! Execution ID: ${result.execution_id}`);
-        
-        // Clear form
+        await executeCommand(workdir, command);
         document.getElementById('command').value = '';
-        
-        // Refresh executions
         setTimeout(() => loadExecutions(), 500);
     } catch (error) {
         // Error already handled in apiRequest
@@ -192,7 +171,7 @@ function openAddCommandModal() {
     document.getElementById('modalTitle').textContent = 'Add New Command';
     document.getElementById('commandForm').reset();
     document.getElementById('commandId').value = '';
-    document.getElementById('commandModal').classList.add('active');
+    document.getElementById('commandModal').classList.remove('hidden');
 }
 
 function openEditCommandModal(command) {
@@ -203,16 +182,16 @@ function openEditCommandModal(command) {
     document.getElementById('commandWorkdir').value = command.workdir;
     document.getElementById('commandCommand').value = command.command;
     document.getElementById('commandTags').value = command.tags ? command.tags.join(', ') : '';
-    document.getElementById('commandModal').classList.add('active');
+    document.getElementById('commandModal').classList.remove('hidden');
 }
 
 function closeCommandModal() {
-    document.getElementById('commandModal').classList.remove('active');
+    document.getElementById('commandModal').classList.add('hidden');
 }
 
 async function handleSaveCommand(e) {
     e.preventDefault();
-    
+
     const id = document.getElementById('commandId').value;
     const commandData = {
         name: document.getElementById('commandName').value.trim(),
@@ -224,14 +203,14 @@ async function handleSaveCommand(e) {
             .map(t => t.trim())
             .filter(t => t.length > 0),
     };
-    
+
     try {
         if (id) {
             await updateCommand(id, commandData);
         } else {
             await createCommand(commandData);
         }
-        
+
         closeCommandModal();
         loadCommands();
     } catch (error) {
@@ -240,182 +219,176 @@ async function handleSaveCommand(e) {
 }
 
 // ===========================
-// Execution Modal
-// ===========================
-function openExecutionModal(executionId) {
-    getExecution(executionId).then(execution => {
-        renderExecutionDetails(execution);
-        document.getElementById('executionModal').classList.add('active');
-    });
-}
-
-function closeExecutionModal() {
-    document.getElementById('executionModal').classList.remove('active');
-}
-
-function renderExecutionDetails(execution) {
-    const statusClass = `status-${execution.status}`;
-    const statusIcon = {
-        running: '⏳',
-        success: '✅',
-        failed: '❌',
-    }[execution.status] || '❓';
-    
-    const html = `
-        <div class="detail-section">
-            <h3>Status</h3>
-            <div class="execution-status ${statusClass}">
-                <span class="status-indicator"></span>
-                ${statusIcon} ${execution.status.toUpperCase()}
-            </div>
-        </div>
-        
-        ${execution.name ? `
-        <div class="detail-section">
-            <h3>Command Name</h3>
-            <p>${escapeHtml(execution.name)}</p>
-        </div>
-        ` : ''}
-        
-        <div class="detail-section">
-            <h3>Working Directory</h3>
-            <p><code>${escapeHtml(execution.workdir)}</code></p>
-        </div>
-        
-        <div class="detail-section">
-            <h3>Command</h3>
-            <p><code>${escapeHtml(execution.command)}</code></p>
-        </div>
-        
-        <div class="detail-section">
-            <h3>Timeline</h3>
-            <p><strong>Started:</strong> ${formatDateTime(execution.started_at)}</p>
-            ${execution.ended_at ? `<p><strong>Ended:</strong> ${formatDateTime(execution.ended_at)}</p>` : ''}
-            ${execution.duration ? `<p><strong>Duration:</strong> ${execution.duration}</p>` : ''}
-            <p><strong>Exit Code:</strong> ${execution.exit_code}</p>
-        </div>
-        
-        <div class="detail-section">
-            <h3>Output</h3>
-            <div class="detail-output">${execution.output || '(no output)'}</div>
-        </div>
-    `;
-    
-    document.getElementById('executionDetails').innerHTML = html;
-}
-
-// ===========================
 // Render Functions
 // ===========================
 function renderCommands() {
     const container = document.getElementById('commandsList');
-    
+
     if (commands.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">📦</div>
-                <p>No saved commands yet</p>
-                <button class="btn btn-ghost" onclick="document.getElementById('addCommandBtn').click()">
-                    Create your first command
-                </button>
-            </div>
-        `;
+        container.innerHTML = '<div class="text-center text-gray-500 text-xs py-8">No saved commands</div>';
         return;
     }
-    
+
     const html = commands.map(cmd => `
-        <div class="command-item">
-            <div class="command-header">
-                <div>
-                    <div class="command-title">${escapeHtml(cmd.name)}</div>
-                    ${cmd.description ? `<div class="command-description">${escapeHtml(cmd.description)}</div>` : ''}
-                </div>
+        <div class="bg-gray-800 border border-gray-700 rounded p-2 hover:border-indigo-500 transition">
+            <div class="font-medium text-xs mb-1 truncate">${escapeHtml(cmd.name)}</div>
+            ${cmd.description ? `<div class="text-xs text-gray-400 mb-1.5 truncate">${escapeHtml(cmd.description)}</div>` : ''}
+            <div class="text-xs text-gray-500 mb-1.5 space-y-0.5">
+                <div class="truncate">📁 ${escapeHtml(cmd.workdir)}</div>
+                <div class="truncate">⚡ ${escapeHtml(cmd.command)}</div>
             </div>
-            
-            <div class="command-details">
-                <div class="command-detail">
-                    <span class="command-detail-label">📁 Workdir:</span>
-                    <span class="command-detail-value">${escapeHtml(cmd.workdir)}</span>
-                </div>
-                <div class="command-detail">
-                    <span class="command-detail-label">⚡ Command:</span>
-                    <span class="command-detail-value">${escapeHtml(cmd.command)}</span>
-                </div>
-            </div>
-            
             ${cmd.tags && cmd.tags.length > 0 ? `
-            <div class="command-tags">
-                ${cmd.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('')}
+            <div class="flex flex-wrap gap-1 mb-1.5">
+                ${cmd.tags.map(tag => `<span class="text-xs bg-gray-700 px-1.5 py-0.5 rounded">${escapeHtml(tag)}</span>`).join('')}
             </div>
             ` : ''}
-            
-            <div class="command-actions">
-                <button class="btn btn-primary btn-small" onclick="runSavedCommand('${cmd.id}')">
-                    <span class="btn-icon">▶</span>
-                    Run
+            <div class="flex gap-1">
+                <button 
+                    onclick="runSavedCommand('${cmd.id}')" 
+                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-xs transition flex items-center justify-center gap-1"
+                    title="Run command"
+                >
+                    ▶️
                 </button>
-                <button class="btn btn-secondary btn-small" onclick='editCommand(${JSON.stringify(cmd)})'>
-                    <span class="btn-icon">✏️</span>
-                    Edit
+                <button 
+                    onclick='editCommand(${JSON.stringify(cmd)})' 
+                    class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs transition flex items-center justify-center gap-1"
+                    title="Edit command"
+                >
+                    ✏️
                 </button>
-                <button class="btn btn-danger btn-small" onclick="removeCommand('${cmd.id}')">
-                    <span class="btn-icon">🗑️</span>
-                    Delete
+                <button 
+                    onclick="removeCommand('${cmd.id}')" 
+                    class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition flex items-center justify-center"
+                    title="Delete command"
+                >
+                    🗑️
                 </button>
             </div>
         </div>
     `).join('');
-    
+
     container.innerHTML = html;
 }
 
 function renderExecutions() {
     const container = document.getElementById('executionsList');
-    
+
     if (executions.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">🕐</div>
-                <p>No executions yet</p>
-            </div>
-        `;
+        container.innerHTML = '<div class="text-center text-gray-500 text-xs py-8">No executions yet</div>';
         return;
     }
-    
-    const html = executions.slice(0, 20).map(exec => {
-        const statusClass = `status-${exec.status}`;
+
+    const html = executions.slice(0, 50).map(exec => {
+        const statusColor = {
+            running: 'bg-blue-500',
+            success: 'bg-green-500',
+            failed: 'bg-red-500',
+        }[exec.status] || 'bg-gray-500';
+
         const statusIcon = {
             running: '⏳',
             success: '✅',
             failed: '❌',
         }[exec.status] || '❓';
-        
+
+        const isSelected = exec.id === selectedExecutionId;
+
         return `
-            <div class="execution-item" onclick="openExecutionModal('${exec.id}')">
-                <div class="execution-header">
-                    ${exec.name ? `<strong>${escapeHtml(exec.name)}</strong>` : '<span class="execution-command">${escapeHtml(exec.command)}</span>'}
-                    <div class="execution-status ${statusClass}">
-                        <span class="status-indicator"></span>
-                        ${statusIcon} ${exec.status}
+            <div onclick="selectExecution('${exec.id}')" 
+                 class="bg-gray-800 border ${isSelected ? 'border-indigo-500' : 'border-gray-700'} rounded p-2 hover:border-indigo-500 transition cursor-pointer">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="font-medium text-xs truncate flex-1">
+                        ${exec.name ? escapeHtml(exec.name) : '<span class="text-gray-400">Quick Execute</span>'}
                     </div>
+                    <span class="${statusColor} w-2 h-2 rounded-full ml-2"></span>
                 </div>
-                
-                <div class="execution-command">${escapeHtml(exec.workdir)} $ ${escapeHtml(exec.command)}</div>
-                
-                <div class="execution-meta">
-                    <span>🕐 ${formatDateTime(exec.started_at)}</span>
-                    ${exec.duration ? `<span>⏱️ ${exec.duration}</span>` : ''}
-                    <span>📊 Exit: ${exec.exit_code}</span>
+                <div class="text-xs text-gray-400 truncate mb-1">${escapeHtml(exec.command)}</div>
+                <div class="flex items-center justify-between text-xs text-gray-500">
+                    <span>${formatDateTime(exec.started_at)}</span>
+                    <span>${statusIcon}</span>
                 </div>
-                
-                ${exec.output && exec.status !== 'running' ? `
-                <div class="execution-output">${escapeHtml(exec.output.substring(0, 200))}${exec.output.length > 200 ? '...' : ''}</div>
-                ` : ''}
             </div>
         `;
     }).join('');
-    
+
     container.innerHTML = html;
+}
+
+function renderExecutionDetails(execution) {
+    selectedExecutionId = execution.id;
+
+    const statusColor = {
+        running: 'text-blue-400',
+        success: 'text-green-400',
+        failed: 'text-red-400',
+    }[execution.status] || 'text-gray-400';
+
+    const statusIcon = {
+        running: '⏳',
+        success: '✅',
+        failed: '❌',
+    }[execution.status] || '❓';
+
+    const html = `
+        <div class="space-y-3">
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Status</div>
+                <div class="flex items-center gap-2 ${statusColor} font-medium text-sm">
+                    ${statusIcon} ${execution.status.toUpperCase()}
+                </div>
+            </div>
+            
+            ${execution.name ? `
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Command Name</div>
+                <div class="text-sm">${escapeHtml(execution.name)}</div>
+            </div>
+            ` : ''}
+            
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Working Directory</div>
+                <div class="text-xs font-mono bg-gray-800 px-2 py-1 rounded">${escapeHtml(execution.workdir)}</div>
+            </div>
+            
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Command</div>
+                <div class="text-xs font-mono bg-gray-800 px-2 py-1 rounded">${escapeHtml(execution.command)}</div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <div class="text-xs text-gray-400 mb-1">Started</div>
+                    <div class="text-xs">${formatDateTime(execution.started_at)}</div>
+                </div>
+                ${execution.ended_at ? `
+                <div>
+                    <div class="text-xs text-gray-400 mb-1">Ended</div>
+                    <div class="text-xs">${formatDateTime(execution.ended_at)}</div>
+                </div>
+                ` : ''}
+            </div>
+            
+            ${execution.duration ? `
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Duration</div>
+                <div class="text-xs">${execution.duration}</div>
+            </div>
+            ` : ''}
+            
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Exit Code</div>
+                <div class="text-xs">${execution.exit_code}</div>
+            </div>
+            
+            <div>
+                <div class="text-xs text-gray-400 mb-1">Output</div>
+                <pre class="text-xs font-mono bg-gray-800 p-2 rounded overflow-x-auto max-h-96 overflow-y-auto scrollbar-thin">${escapeHtml(execution.output) || '(no output)'}</pre>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('executionDetails').innerHTML = html;
 }
 
 // ===========================
@@ -424,10 +397,9 @@ function renderExecutions() {
 async function runSavedCommand(commandId) {
     const command = commands.find(c => c.id === commandId);
     if (!command) return;
-    
+
     try {
-        const result = await executeCommand(command.workdir, command.command, commandId);
-        alert(`Command "${command.name}" started!`);
+        await executeCommand(command.workdir, command.command, commandId);
         setTimeout(() => loadExecutions(), 500);
     } catch (error) {
         // Error already handled
@@ -439,8 +411,8 @@ function editCommand(command) {
 }
 
 async function removeCommand(commandId) {
-    if (!confirm('Are you sure you want to delete this command?')) return;
-    
+    if (!confirm('Delete this command?')) return;
+
     try {
         await deleteCommand(commandId);
         loadCommands();
@@ -450,11 +422,23 @@ async function removeCommand(commandId) {
 }
 
 async function handleClearHistory() {
-    if (!confirm('Are you sure you want to clear all execution history?')) return;
-    
+    if (!confirm('Clear all execution history?')) return;
+
     try {
         await clearAllExecutions();
+        selectedExecutionId = null;
+        document.getElementById('executionDetails').innerHTML = '<div class="text-center text-gray-500 text-xs py-8">Select an execution to view details</div>';
         loadExecutions();
+    } catch (error) {
+        // Error already handled
+    }
+}
+
+async function selectExecution(executionId) {
+    try {
+        const execution = await getExecution(executionId);
+        renderExecutionDetails(execution);
+        renderExecutions(); // Re-render to update selected state
     } catch (error) {
         // Error already handled
     }
@@ -478,32 +462,23 @@ function formatDateTime(dateString) {
     const date = new Date(dateString);
     const now = new Date();
     const diff = now - date;
-    
-    // Less than 1 minute
-    if (diff < 60000) {
-        return 'Just now';
-    }
-    
-    // Less than 1 hour
+
+    if (diff < 60000) return 'Just now';
     if (diff < 3600000) {
         const minutes = Math.floor(diff / 60000);
-        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+        return `${minutes}m ago`;
     }
-    
-    // Less than 24 hours
     if (diff < 86400000) {
         const hours = Math.floor(diff / 3600000);
-        return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        return `${hours}h ago`;
     }
-    
-    // Otherwise show full date
+
     return date.toLocaleString();
 }
 
-// Make functions available globally for onclick handlers
+// Make functions available globally
 window.runSavedCommand = runSavedCommand;
 window.editCommand = editCommand;
 window.removeCommand = removeCommand;
-window.openExecutionModal = openExecutionModal;
+window.selectExecution = selectExecution;
 window.closeCommandModal = closeCommandModal;
-window.closeExecutionModal = closeExecutionModal;
