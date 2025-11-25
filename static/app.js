@@ -305,39 +305,39 @@ function renderCommands() {
     }
 
     const html = filteredCommands.map(cmd => `
-        <div class="bg-gray-800 border border-gray-700 rounded p-2 hover:border-indigo-500 transition">
+        <div class="bg-gray-800 border border-gray-700 rounded p-2 hover:border-indigo-500 transition group">
             <div class="font-medium text-xs mb-1 truncate">${escapeHtml(cmd.name)}</div>
             ${cmd.description ? `<div class="text-xs text-gray-400 mb-1.5 truncate">${escapeHtml(cmd.description)}</div>` : ''}
             <div class="text-xs text-gray-500 mb-1.5 space-y-0.5">
-                <div class="truncate">📁 ${escapeHtml(cmd.workdir)}</div>
-                <div class="truncate">⚡ ${escapeHtml(cmd.command)}</div>
+                <div class="truncate flex items-center gap-1"><i class="fa-regular fa-folder text-gray-600"></i> ${escapeHtml(cmd.workdir)}</div>
+                <div class="truncate flex items-center gap-1"><i class="fa-solid fa-terminal text-gray-600"></i> ${escapeHtml(cmd.command)}</div>
             </div>
             ${cmd.tags && cmd.tags.length > 0 ? `
             <div class="flex flex-wrap gap-1 mb-1.5">
                 ${cmd.tags.map(tag => `<span class="text-xs bg-gray-700 px-1.5 py-0.5 rounded">${escapeHtml(tag)}</span>`).join('')}
             </div>
             ` : ''}
-            <div class="flex gap-1">
+            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
                     onclick="runSavedCommand('${cmd.id}')" 
                     class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-xs transition flex items-center justify-center gap-1"
                     title="Run command"
                 >
-                    ▶️
+                    <i class="fa-solid fa-play"></i>
                 </button>
                 <button 
                     onclick='editCommand(${JSON.stringify(cmd)})' 
                     class="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded text-xs transition flex items-center justify-center gap-1"
                     title="Edit command"
                 >
-                    ✏️
+                    <i class="fa-solid fa-pen"></i>
                 </button>
                 <button 
                     onclick="removeCommand('${cmd.id}')" 
                     class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition flex items-center justify-center"
                     title="Delete command"
                 >
-                    🗑️
+                    <i class="fa-solid fa-trash"></i>
                 </button>
             </div>
         </div>
@@ -362,10 +362,10 @@ function renderExecutions() {
         }[exec.status] || 'bg-gray-500';
 
         const statusIcon = {
-            running: '⏳',
-            success: '✅',
-            failed: '❌',
-        }[exec.status] || '❓';
+            running: '<i class="fa-solid fa-spinner fa-spin"></i>',
+            success: '<i class="fa-solid fa-check"></i>',
+            failed: '<i class="fa-solid fa-xmark"></i>',
+        }[exec.status] || '<i class="fa-solid fa-question"></i>';
 
         const isSelected = exec.id === selectedExecutionId;
 
@@ -400,10 +400,10 @@ function renderExecutionDetails(execution) {
     }[execution.status] || 'text-gray-400';
 
     const statusIcon = {
-        running: '⏳',
-        success: '✅',
-        failed: '❌',
-    }[execution.status] || '❓';
+        running: '<i class="fa-solid fa-spinner fa-spin"></i>',
+        success: '<i class="fa-solid fa-check"></i>',
+        failed: '<i class="fa-solid fa-xmark"></i>',
+    }[execution.status] || '<i class="fa-solid fa-question"></i>';
 
     const html = `
         <div class="space-y-3">
@@ -424,18 +424,24 @@ function renderExecutionDetails(execution) {
             ${execution.executed_by ? `
             <div>
                 <div class="text-xs text-gray-400 mb-1">Executed By</div>
-                <div class="text-sm">👤 ${escapeHtml(execution.executed_by)}</div>
+                <div class="text-sm flex items-center gap-1"><i class="fa-solid fa-user text-gray-500"></i> ${escapeHtml(execution.executed_by)}</div>
             </div>
             ` : ''}
             
             <div>
                 <div class="text-xs text-gray-400 mb-1">Working Directory</div>
-                <div class="text-xs font-mono bg-gray-800 px-2 py-1 rounded">${escapeHtml(execution.workdir)}</div>
+                <div class="text-xs font-mono bg-gray-800 px-2 py-1 rounded flex items-center gap-2">
+                    <i class="fa-regular fa-folder text-gray-500"></i>
+                    ${escapeHtml(execution.workdir)}
+                </div>
             </div>
             
             <div>
                 <div class="text-xs text-gray-400 mb-1">Command</div>
-                <div class="text-xs font-mono bg-gray-800 px-2 py-1 rounded">${escapeHtml(execution.command)}</div>
+                <div class="text-xs font-mono bg-gray-800 px-2 py-1 rounded flex items-center gap-2">
+                    <i class="fa-solid fa-terminal text-gray-500"></i>
+                    ${escapeHtml(execution.command)}
+                </div>
             </div>
             
             <div class="grid grid-cols-2 gap-3">

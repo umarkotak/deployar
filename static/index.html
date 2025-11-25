@@ -8,6 +8,7 @@
     <meta name="description"
         content="Modern deployment management tool for executing and managing command-line operations">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
             theme: {
@@ -51,7 +52,7 @@
             <div class="flex items-center gap-4">
                 <!-- Logo -->
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <span class="text-2xl">🚀</span>
+                    <i class="fa-solid fa-rocket text-2xl text-indigo-500"></i>
                     <h1
                         class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                         Deployar</h1>
@@ -60,30 +61,32 @@
                 <!-- Quick Execute Form -->
                 <form id="executeForm" class="flex items-center gap-2 flex-1">
                     <div class="flex items-center gap-2 flex-1">
-                        <label class="text-xs text-gray-400 whitespace-nowrap">⚡ Quick:</label>
+                        <label class="text-xs text-gray-400 whitespace-nowrap"><i
+                                class="fa-solid fa-bolt text-yellow-500 mr-1"></i>Quick:</label>
                         <input type="text" id="workdir" value="." placeholder="workdir"
-                            class="w-32 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500"
+                            class="w-32 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
                             required>
                         <input type="text" id="command" placeholder="command (e.g. make build)"
-                            class="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500"
+                            class="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 transition-colors"
                             required>
                         <button type="submit"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1 px-3 rounded text-xs transition whitespace-nowrap">
-                            Execute
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-1 px-3 rounded text-xs transition whitespace-nowrap flex items-center gap-1">
+                            <i class="fa-solid fa-play"></i> Execute
                         </button>
                     </div>
                 </form>
 
                 <!-- User Info & Actions -->
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <span id="currentUser" class="text-xs text-gray-400">•••</span>
+                    <span id="currentUser" class="text-xs text-gray-400 flex items-center gap-1"><i
+                            class="fa-solid fa-circle-user"></i> •••</span>
                     <a href="/users.html"
-                        class="bg-gray-800 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition whitespace-nowrap">
-                        👥 Users
+                        class="bg-gray-800 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition whitespace-nowrap flex items-center gap-1">
+                        <i class="fa-solid fa-users"></i> Users
                     </a>
                     <button id="logoutBtn"
-                        class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition whitespace-nowrap">
-                        Logout
+                        class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition whitespace-nowrap flex items-center gap-1">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
                     </button>
                 </div>
             </div>
@@ -93,18 +96,22 @@
     <!-- Main 3-Column Layout -->
     <div class="grid grid-cols-12 gap-3 p-3 h-[calc(100vh-64px)]">
         <!-- Column 1: Saved Commands -->
-        <div class="col-span-3 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col">
+        <div
+            class="col-span-3 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col hover:border-gray-700 transition-colors">
             <div class="flex items-center justify-between mb-3">
-                <h2 class="text-sm font-semibold flex items-center gap-1.5">
-                    <span>📚</span> Commands
+                <h2 class="text-sm font-semibold flex items-center gap-2">
+                    <i class="fa-solid fa-book text-indigo-400"></i> Commands
                 </h2>
                 <button id="addCommandBtn"
-                    class="bg-gray-800 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition">
-                    + Add
+                    class="bg-gray-800 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition flex items-center gap-1">
+                    <i class="fa-solid fa-plus"></i> Add
                 </button>
             </div>
-            <input type="text" id="commandSearch" placeholder="🔍 Search commands..."
-                class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs focus:outline-none focus:border-indigo-500 mb-2">
+            <div class="relative mb-2">
+                <i class="fa-solid fa-magnifying-glass absolute left-2 top-1.5 text-gray-500 text-xs"></i>
+                <input type="text" id="commandSearch" placeholder="Search commands..."
+                    class="w-full bg-gray-800 border border-gray-700 rounded pl-7 pr-2 py-1 text-xs focus:outline-none focus:border-indigo-500 transition-colors">
+            </div>
             <div id="commandsList" class="flex-1 overflow-y-auto scrollbar-thin space-y-1.5">
                 <div class="text-center text-gray-500 text-xs py-8">
                     No saved commands
@@ -113,14 +120,15 @@
         </div>
 
         <!-- Column 2: Execution History -->
-        <div class="col-span-3 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col">
+        <div
+            class="col-span-3 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col hover:border-gray-700 transition-colors">
             <div class="flex items-center justify-between mb-3">
-                <h2 class="text-sm font-semibold flex items-center gap-1.5">
-                    <span>📜</span> History
+                <h2 class="text-sm font-semibold flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> History
                 </h2>
                 <button id="clearHistoryBtn"
-                    class="text-gray-400 hover:text-white px-2 py-1 rounded text-xs transition">
-                    Clear
+                    class="text-gray-400 hover:text-white px-2 py-1 rounded text-xs transition flex items-center gap-1">
+                    <i class="fa-solid fa-trash-can"></i> Clear
                 </button>
             </div>
             <div id="executionsList" class="flex-1 overflow-y-auto scrollbar-thin space-y-1.5">
@@ -131,9 +139,10 @@
         </div>
 
         <!-- Column 3: Execution Details -->
-        <div class="col-span-6 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col">
-            <h2 class="text-sm font-semibold mb-3 flex items-center gap-1.5">
-                <span>📄</span> Details
+        <div
+            class="col-span-6 bg-gray-900/50 border border-gray-800 rounded-lg p-3 overflow-hidden flex flex-col hover:border-gray-700 transition-colors">
+            <h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-file-lines text-indigo-400"></i> Details
             </h2>
             <div id="executionDetails" class="flex-1 overflow-y-auto scrollbar-thin">
                 <div class="text-center text-gray-500 text-xs py-8">
