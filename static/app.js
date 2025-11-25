@@ -206,9 +206,23 @@ async function handleQuickExecute(e) {
     const command = document.getElementById('command').value.trim();
 
     try {
-        await executeCommand(workdir, command);
+        const result = await executeCommand(workdir, command);
         document.getElementById('command').value = '';
-        setTimeout(() => loadExecutions(), 500);
+
+        // Auto-select the newly created execution
+        if (result && result.execution_id) {
+            selectedExecutionId = result.execution_id;
+            setTimeout(async () => {
+                await loadExecutions();
+                // Auto-open the execution details
+                const execution = await getExecution(result.execution_id);
+                if (execution) {
+                    renderExecutionDetails(execution);
+                }
+            }, 500);
+        } else {
+            setTimeout(() => loadExecutions(), 500);
+        }
     } catch (error) {
         // Error already handled in apiRequest
     }
@@ -467,8 +481,22 @@ async function runSavedCommand(commandId) {
     if (!command) return;
 
     try {
-        await executeCommand(command.workdir, command.command, commandId);
-        setTimeout(() => loadExecutions(), 500);
+        const result = await executeCommand(command.workdir, command.command, commandId);
+
+        // Auto-select the newly created execution
+        if (result && result.execution_id) {
+            selectedExecutionId = result.execution_id;
+            setTimeout(async () => {
+                await loadExecutions();
+                // Auto-open the execution details
+                const execution = await getExecution(result.execution_id);
+                if (execution) {
+                    renderExecutionDetails(execution);
+                }
+            }, 500);
+        } else {
+            setTimeout(() => loadExecutions(), 500);
+        }
     } catch (error) {
         // Error already handled
     }
