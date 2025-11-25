@@ -94,6 +94,7 @@
         </div>
     </div>
 
+    <script src="notifications.js"></script>
     <script src="auth.js"></script>
     <script>
         const API_BASE = '/api';
@@ -232,7 +233,7 @@
 
                 loadUsers();
             } catch (error) {
-                alert('Failed to delete user: ' + error.message);
+                showNotification('Failed to delete user: ' + error.message, 'error');
             }
         }
 

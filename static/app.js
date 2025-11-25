@@ -89,7 +89,7 @@ async function apiRequest(endpoint, options = {}) {
         return await response.json();
     } catch (error) {
         console.error('API Error:', error);
-        alert(`Error: ${error.message}`);
+        showNotification(`Error: ${error.message}`, 'error');
         throw error;
     }
 }
